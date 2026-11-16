@@ -1191,7 +1191,7 @@ function art(type, tint, mode){
 }
 
 /* Photo-first product cards; retain original art until a matching image is available. */
-const PHOTO_IDS = new Set(['pork','lace','shrimp','mala','cabbage','corn','b-pork','b-chive','b-shrimp']);
+const PHOTO_IDS = new Set(['pork','lace','shrimp','mala','cabbage','corn','b-pork','b-chive','b-shrimp','g-fortune','g-family','g-festival']);
 function productVisual(item, mode){
   const fallback = item.gift ? art('box',item.tint,'night') : art(item.art,item.tint);
   if(!PHOTO_IDS.has(item.id)) return fallback;
