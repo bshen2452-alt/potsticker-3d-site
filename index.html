@@ -108,7 +108,8 @@ main{overflow-x:clip}
 .stat:first-child{border-left:0}
 .stat b{display:block;font:900 clamp(30px,4.4vw,56px)/1 var(--display);font-variant-numeric:tabular-nums;letter-spacing:.01em}
 .stat b small{font-size:.42em;margin-left:4px;letter-spacing:.06em}
-.stat span{display:block;margin-top:8px;font-size:14px;color:var(--muted)}
+.stat b > span{display:inline;font:inherit;letter-spacing:inherit;color:inherit;margin:0}
+.stat > span{display:block;margin-top:8px;font-size:14px;color:var(--muted)}
 .stats-cap{position:absolute;top:18vh;left:max(16px,env(safe-area-inset-left,0px))}
 @media (max-width:640px){ .stats{grid-template-columns:1fr} .stat{border-left:0;border-top:1px solid var(--line)} .stat:first-child{border-top:0} }
 
