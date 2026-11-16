@@ -108,7 +108,8 @@ main{overflow-x:clip}
 .stat:first-child{border-left:0}
 .stat b{display:block;font:900 clamp(30px,4.4vw,56px)/1 var(--display);font-variant-numeric:tabular-nums;letter-spacing:.01em}
 .stat b small{font-size:.42em;margin-left:4px;letter-spacing:.06em}
-.stat span{display:block;margin-top:8px;font-size:14px;color:var(--muted)}
+.stat b > span{display:inline;font:inherit;letter-spacing:inherit;color:inherit;margin:0}
+.stat > span{display:block;margin-top:8px;font-size:14px;color:var(--muted)}
 .stats-cap{position:absolute;top:18vh;left:max(16px,env(safe-area-inset-left,0px))}
 @media (max-width:640px){ .stats{grid-template-columns:1fr} .stat{border-left:0;border-top:1px solid var(--line)} .stat:first-child{border-top:0} }
 
@@ -120,6 +121,16 @@ main{overflow-x:clip}
 .add-mini{width:38px;height:38px;border-radius:50%;border:1.5px solid var(--fg);background:transparent;cursor:pointer;font-size:20px;line-height:1}
 .add-mini:hover{background:var(--fg);color:var(--bg)}
 .link{color:inherit;font-weight:700;text-underline-offset:4px}
+
+/* Product photography stays inside the existing menu, featured and gift frames. */
+.product-visual{display:block;position:relative;overflow:hidden;background:var(--p-paper);width:100%;aspect-ratio:4/3}
+.product-visual > img{display:block;width:100%;height:100%;object-fit:cover;object-position:center}
+.product-visual > svg.art{display:none}
+.product-visual.photo-failed > img{display:none}
+.product-visual.photo-failed > svg.art{display:block;width:100%;height:100%}
+.feat-list .product-visual{width:72px;height:54px;aspect-ratio:4/3;flex:none}
+.item .product-visual{border-bottom:1.5px solid var(--p-ink)}
+.gift .product-visual{aspect-ratio:16/10;border-bottom:1px solid var(--n-line);background:var(--n-bg2)}
 
 /* ---------- shared sheet look ---------- */
 .sheet{position:relative;z-index:3;padding-block:88px 96px}
@@ -1179,6 +1190,15 @@ function art(type, tint, mode){
   return `<svg class="art" viewBox="0 0 160 120" role="img" aria-hidden="true"><defs>${defs}</defs>${body}</svg>`;
 }
 
+/* Photo-first product cards; retain original art until a matching image is available. */
+const PHOTO_IDS = new Set(['pork','lace','shrimp','mala','cabbage','corn','b-pork','b-chive','b-shrimp','g-fortune','g-family','g-festival']);
+function productVisual(item, mode){
+  const fallback = item.gift ? art('box',item.tint,'night') : art(item.art,item.tint);
+  if(!PHOTO_IDS.has(item.id)) return fallback;
+  const src = 'assets/products/' + item.id + '.webp';
+  return '<span class="product-visual"><img src="' + src + '" alt="' + esc(item.name) + '商品示意照片" loading="lazy" decoding="async" onerror="this.parentElement.classList.add(\'photo-failed\')">' + fallback + '</span>';
+}
+
 /* ---------- data (sample menu; replace with the shop's real items) ---------- */
 const CATS = [
   {id:'potsticker', name:'招牌鍋貼'},
@@ -1436,7 +1456,7 @@ function tagHtml(t){ return `<span class="tag ${t==='人氣'?'hot':t==='招牌'?
 function renderMenu(){
   grid.innerHTML = ITEMS.filter(i => i.cat === curCat).map(i => `
     <article class="item">
-      ${art(i.art, i.tint)}
+      ${productVisual(i)}
       <div class="item-b">
         <h3>${esc(i.name)}</h3>
         <div class="tags">${i.tags.map(tagHtml).join('')}${chili(i.spicy)}</div>
@@ -1462,13 +1482,13 @@ renderMenu();
 
 /* ---------- featured over the 3D pan ---------- */
 $('#feat-list').innerHTML = ['pork','lace','shrimp'].map(id => { const i = ALL[id]; return `
-  <li>${art(i.art, i.tint)}<div><b>${esc(i.name)}</b><small>${money(i.price)} · ${esc(i.unit)}${i.tags.length ? ' · ' + i.tags.join('、') : ''}</small></div>
+  <li>${productVisual(i)}<div><b>${esc(i.name)}</b><small>${money(i.price)} · ${esc(i.unit)}${i.tags.length ? ' · ' + i.tags.join('、') : ''}</small></div>
   <button class="add-mini" type="button" data-add="${id}" aria-label="將 ${esc(i.name)} 加入購物車">＋</button></li>`; }).join('');
 
 /* ---------- gifts ---------- */
 $('#gift-grid').innerHTML = GIFTS.map(g => `
   <article class="gift">
-    ${art('box', g.tint, 'night')}
+    ${productVisual(g)}
     <div class="gift-b">
       <h3>${esc(g.name)} <small style="font:500 13px var(--mono);color:var(--n-muted)">${esc(g.unit)}</small></h3>
       <p>${esc(g.desc)}</p>
