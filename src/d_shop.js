@@ -85,6 +85,15 @@ function art(type, tint, mode){
   return `<svg class="art" viewBox="0 0 160 120" role="img" aria-hidden="true"><defs>${defs}</defs>${body}</svg>`;
 }
 
+/* Photo-first product cards; retain original art until a matching image is available. */
+const PHOTO_IDS = new Set(['pork','lace','shrimp','mala','cabbage','corn','b-pork','b-chive','b-shrimp']);
+function productVisual(item, mode){
+  const fallback = item.gift ? art('box',item.tint,'night') : art(item.art,item.tint);
+  if(!PHOTO_IDS.has(item.id)) return fallback;
+  const src = 'assets/products/' + item.id + '.webp';
+  return '<span class="product-visual"><img src="' + src + '" alt="' + esc(item.name) + '商品示意照片" loading="lazy" decoding="async" onerror="this.parentElement.classList.add(\'photo-failed\')">' + fallback + '</span>';
+}
+
 /* ---------- data (sample menu; replace with the shop's real items) ---------- */
 const CATS = [
   {id:'potsticker', name:'招牌鍋貼'},
@@ -342,7 +351,7 @@ function tagHtml(t){ return `<span class="tag ${t==='人氣'?'hot':t==='招牌'?
 function renderMenu(){
   grid.innerHTML = ITEMS.filter(i => i.cat === curCat).map(i => `
     <article class="item">
-      ${art(i.art, i.tint)}
+      ${productVisual(i)}
       <div class="item-b">
         <h3>${esc(i.name)}</h3>
         <div class="tags">${i.tags.map(tagHtml).join('')}${chili(i.spicy)}</div>
@@ -368,13 +377,13 @@ renderMenu();
 
 /* ---------- featured over the 3D pan ---------- */
 $('#feat-list').innerHTML = ['pork','lace','shrimp'].map(id => { const i = ALL[id]; return `
-  <li>${art(i.art, i.tint)}<div><b>${esc(i.name)}</b><small>${money(i.price)} · ${esc(i.unit)}${i.tags.length ? ' · ' + i.tags.join('、') : ''}</small></div>
+  <li>${productVisual(i)}<div><b>${esc(i.name)}</b><small>${money(i.price)} · ${esc(i.unit)}${i.tags.length ? ' · ' + i.tags.join('、') : ''}</small></div>
   <button class="add-mini" type="button" data-add="${id}" aria-label="將 ${esc(i.name)} 加入購物車">＋</button></li>`; }).join('');
 
 /* ---------- gifts ---------- */
 $('#gift-grid').innerHTML = GIFTS.map(g => `
   <article class="gift">
-    ${art('box', g.tint, 'night')}
+    ${productVisual(g)}
     <div class="gift-b">
       <h3>${esc(g.name)} <small style="font:500 13px var(--mono);color:var(--n-muted)">${esc(g.unit)}</small></h3>
       <p>${esc(g.desc)}</p>
