@@ -1,0 +1,670 @@
+<title>鍋貼美術方向原型</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@700;900&family=Noto+Sans+TC:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* layout: sticky style switcher, short intro, then three full-bleed live scenes with captions overlaid bottom-left */
+:root{
+  --bg:#efe3cc; --fg:#2a1c15; --accent:#cf3b25; --muted:#6d5a4c;
+  --line:rgba(42,28,21,.22); --panel:rgba(244,234,214,.9); --chip:#e3d3b5;
+  --display:"Noto Serif TC","Songti TC","PMingLiU",serif;
+  --body:"Noto Sans TC","PingFang TC","Microsoft JhengHei",system-ui,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+}
+body[data-style="ink"]{
+  --bg:#ebe6db; --fg:#191817; --accent:#b0281c; --muted:#5f5a52;
+  --line:rgba(25,24,23,.2); --panel:rgba(240,236,227,.9); --chip:#ddd6c8;
+}
+body[data-style="neon"]{
+  --bg:#0c0913; --fg:#f2e9ff; --accent:#ff8a3d; --muted:#a59bb8;
+  --line:rgba(242,233,255,.18); --panel:rgba(18,13,28,.82); --chip:#211a30;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:15px;line-height:1.65;transition:background .4s,color .4s}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--bg)}
+.wrap{padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+header.bar{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--panel);backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
+.bar-in{display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;padding-block:10px;max-width:1280px;margin:0 auto}
+.logo{display:flex;align-items:center;gap:10px;font-family:var(--display);font-weight:900;font-size:18px;letter-spacing:.06em}
+.seal{width:30px;height:30px;display:grid;place-items:center;background:var(--accent);color:var(--bg);font-size:13px;line-height:1;border-radius:3px;writing-mode:vertical-rl;letter-spacing:0;font-weight:900}
+body[data-style="neon"] .seal{background:transparent;color:var(--accent);border:1.5px solid var(--accent);box-shadow:0 0 10px var(--accent),inset 0 0 8px var(--accent)}
+.switch{display:flex;gap:6px;flex-wrap:wrap}
+.switch button{font:500 13px/1 var(--body);color:var(--fg);background:transparent;border:1px solid var(--line);padding:9px 12px;border-radius:999px;cursor:pointer;display:flex;gap:8px;align-items:center}
+.switch button[aria-pressed="true"]{background:var(--fg);color:var(--bg);border-color:var(--fg)}
+.switch button:focus-visible,.cap button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.sw{display:inline-flex}
+.sw i{width:9px;height:9px;border-radius:50%;margin-left:-2px;border:1px solid rgba(128,128,128,.4)}
+.intro{max-width:1280px;margin:0 auto;padding-block:44px 28px;display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr);gap:32px;align-items:end}
+.intro h1{font-family:var(--display);font-weight:900;font-size:clamp(30px,5vw,56px);line-height:1.15;margin:0;text-wrap:balance;letter-spacing:.02em}
+.intro p{margin:12px 0 0;color:var(--muted);max-width:56ch}
+.dir{border-top:2px solid var(--fg);padding-top:14px}
+.dir .k{font-family:var(--mono);font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.dir h2{font-family:var(--display);font-size:24px;margin:4px 0 6px}
+.dir p{margin:0;color:var(--fg);opacity:.85}
+.scene{position:relative;height:clamp(460px,80vh,860px);overflow:hidden;border-top:1px solid var(--line)}
+.scene canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:pan-y;cursor:crosshair}
+.cap{position:absolute;left:max(16px,env(safe-area-inset-left,0px));bottom:18px;max-width:min(420px,calc(100% - 32px));background:var(--panel);border:1px solid var(--line);padding:14px 16px;backdrop-filter:blur(6px);pointer-events:none}
+.cap .k{font-family:var(--mono);font-size:11.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--accent)}
+.cap h3{font-family:var(--display);font-size:22px;margin:2px 0 4px;letter-spacing:.04em}
+.cap p{margin:0;font-size:14px;color:var(--fg);opacity:.85}
+.cap .hint{margin-top:8px;font-size:13px;color:var(--muted)}
+.cap button{pointer-events:auto;margin-top:10px;font:500 13px/1 var(--body);background:var(--fg);color:var(--bg);border:0;padding:9px 14px;border-radius:999px;cursor:pointer}
+footer{max-width:1280px;margin:0 auto;padding-block:36px 56px;color:var(--muted);font-size:14px;border-top:1px solid var(--line)}
+footer strong{color:var(--fg)}
+.err{position:absolute;inset:0;display:grid;place-items:center;padding:24px;text-align:center;color:var(--muted)}
+@media (max-width:760px){.intro{grid-template-columns:1fr;padding-block:28px 20px}.switch button{padding:8px 10px}}
+</style>
+
+<header class="bar wrap">
+  <div class="bar-in">
+    <div class="logo"><span class="seal">鍋貼</span>美術方向原型</div>
+    <div class="switch" role="group" aria-label="美術風格">
+      <button id="st-print" data-s="print" aria-pressed="true"><span class="sw"><i style="background:#e8a23a"></i><i style="background:#cf3b25"></i><i style="background:#2a1c15"></i></span>A 印刷半色調</button>
+      <button id="st-ink" data-s="ink" aria-pressed="false"><span class="sw"><i style="background:#f7f4ee"></i><i style="background:#8a857c"></i><i style="background:#191817"></i></span>B 水墨</button>
+      <button id="st-neon" data-s="neon" aria-pressed="false"><span class="sw"><i style="background:#ff8a3d"></i><i style="background:#3ee6ff"></i><i style="background:#0c0913"></i></span>C 霓虹線條</button>
+    </div>
+  </div>
+</header>
+
+<section class="intro wrap">
+  <div>
+    <h1>同一顆鍋貼，三種畫法</h1>
+    <p>下面三個場景都是瀏覽器即時運算出來的，沒有模型檔，也沒有影片。用上方按鈕切換風格，三個場景會一起換裝，方便直接比較。</p>
+  </div>
+  <div class="dir" aria-live="polite">
+    <div class="k" id="dir-k">Direction A</div>
+    <h2 id="dir-t">印刷半色調</h2>
+    <p id="dir-d"></p>
+  </div>
+</section>
+
+<section class="scene" id="s-dough">
+  <canvas aria-label="可互動的鍋貼 3D 場景"></canvas>
+  <div class="cap">
+    <div class="k">SDF Raymarching</div>
+    <h3>會呼吸的麵糰</h3>
+    <p>鍋貼形狀由數學距離函數逐像素算出，所以可以像黏土一樣被拉扯、融合，這是模型檔做不到的。</p>
+    <p class="hint">移動游標，麵皮會被吸過去；按住滑鼠會壓出凹痕。</p>
+  </div>
+</section>
+
+<section class="scene" id="s-lace">
+  <canvas aria-label="冰花脆底生長模擬"></canvas>
+  <div class="cap">
+    <div class="k">Reaction–Diffusion</div>
+    <h3>冰花每一次都不一樣</h3>
+    <p>脆底的蕾絲紋路由 Gray-Scott 反應擴散方程一格一格長出來，顏色隨時間從麵糊白煎成焦糖色。</p>
+    <p class="hint">在鍋裡拖曳可以淋上麵糊。</p>
+    <button id="lace-reset" type="button">重新下鍋</button>
+  </div>
+</section>
+
+<section class="scene" id="s-flour">
+  <canvas aria-label="麵粉粒子組成的店名"></canvas>
+  <div class="cap">
+    <div class="k">GPU Particles</div>
+    <h3>麵粉撒成招牌</h3>
+    <p>上萬顆麵粉粒從桌面揚起，排成店名。店名和字體目前是暫代，之後換成真實招牌。</p>
+    <p class="hint">游標划過會撥開麵粉，點一下把它吹散。</p>
+  </div>
+</section>
+
+<footer class="wrap">
+  <strong>選定方向之後</strong>：這三個場景會成為正式網站的開場、煎製章節和店名轉場，再補上菜單、店面地圖與營業資訊。
+</footer>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(function(){
+const STYLES = {
+  print:{i:0, k:'Direction A', t:'印刷半色調', bg:'#efe3cc', ink:'#2a1c15', a:'#e8a23a', b:'#cf3b25', skin:'#f8eedb',
+    d:'像老招牌和年畫的網點印刷。限定四色，描邊會像手繪一樣微微抖動，紅色網點刻意錯版。辨識度最高，截圖一眼就認得出來。'},
+  ink:{i:1, k:'Direction B', t:'水墨', bg:'#ebe6db', ink:'#191817', a:'#8a857c', b:'#b0281c', skin:'#f7f4ee',
+    d:'麵皮留白，焦色用墨暈表現，乾筆描邊帶飛白。安靜、有人文感，適合強調手工與傳承的老店。'},
+  neon:{i:2, k:'Direction C', t:'霓虹線條', bg:'#0c0913', ink:'#f2e9ff', a:'#ff8a3d', b:'#3ee6ff', skin:'#ff4fa3',
+    d:'深夜宵夜感。實體只剩等高線、輪廓光和發光的冰花網，適合年輕客群或晚上營業的店。'}
+};
+let styleKey = 'print';
+try{ const s = localStorage.getItem('gt-style'); if(STYLES[s]) styleKey = s; }catch(e){}
+const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+if(!window.THREE){ document.querySelectorAll('.scene').forEach(s=>s.insertAdjacentHTML('beforeend','<div class="err">3D 函式庫載入失敗，請重新整理。</div>')); return; }
+
+const v3 = h => { const c = new THREE.Color(h); return new THREE.Vector3(c.r,c.g,c.b); };
+function palU(){ return {uBg:{value:new THREE.Vector3()},uInk:{value:new THREE.Vector3()},uA:{value:new THREE.Vector3()},uB:{value:new THREE.Vector3()},uSkin:{value:new THREE.Vector3()},uStyle:{value:0}}; }
+function applyPal(u){ const P = STYLES[styleKey]; u.uBg.value.copy(v3(P.bg)); u.uInk.value.copy(v3(P.ink)); u.uA.value.copy(v3(P.a)); u.uB.value.copy(v3(P.b)); u.uSkin.value.copy(v3(P.skin)); u.uStyle.value = P.i; }
+
+const VS = `varying vec2 vUv; void main(){ vUv = uv; gl_Position = vec4(position.xy,0.,1.); }`;
+const COMMON = `
+precision highp float;
+uniform vec3 uBg,uInk,uA,uB,uSkin; uniform float uStyle;
+float hash(vec2 p){ return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453); }
+float noise(vec2 p){ vec2 i=floor(p), f=fract(p); vec2 u=f*f*(3.-2.*f);
+  return mix(mix(hash(i),hash(i+vec2(1.,0.)),u.x), mix(hash(i+vec2(0.,1.)),hash(i+vec2(1.,1.)),u.x), u.y); }
+float fbm(vec2 p){ float v=0., a=.5; for(int i=0;i<5;i++){ v+=a*noise(p); p=p*2.03+17.1; a*=.5; } return v; }
+float dots(vec2 fc, float dens, float cell, float a){
+  float c=cos(a), s=sin(a); vec2 p = mat2(c,-s,s,c)*fc/cell;
+  vec2 g = fract(p)-.5; float r = sqrt(clamp(dens,0.,1.))*.62;
+  return (1.-smoothstep(r-.07, r+.07, length(g)))*smoothstep(.03,.08,dens);
+}
+`;
+
+/* ---------- Scene 1: SDF dough ---------- */
+const FS_DOUGH = COMMON + `
+uniform vec2 uRes; uniform float uTime; uniform vec2 uMouse; uniform float uPress; uniform float uRot; uniform float uDpr;
+vec3 gMP; float gDum; vec3 gQ;
+float smin(float a,float b,float k){ float h=clamp(.5+.5*(b-a)/k,0.,1.); return mix(b,a,h)-k*h*(1.-h); }
+float smax(float a,float b,float k){ return -smin(-a,-b,k); }
+float sdEll(vec3 p, vec3 r){ float k0=length(p/r); float k1=length(p/(r*r)); return k0*(k0-1.)/k1; }
+float dumpling(vec3 p){
+  vec3 q = p;
+  q.z += .30*q.x*q.x - .18;
+  float pinch = 1. + 1.2*smoothstep(-.15,.5,q.y);
+  float body = sdEll(vec3(q.x,q.y,q.z*pinch), vec3(1.22,.56,.62))/pinch;
+  float pl = sin(q.x*12.)*.5+.5;
+  float ridge = sdEll(q-vec3(0.,.5,0.), vec3(.98,.2+.07*pl,.05+.04*pl));
+  float d = smin(body, ridge, .1);
+  d = smax(d, -(q.y+.3), .06);
+  d += .02*sin(q.x*12.)*smoothstep(.1,.5,q.y)*smoothstep(1.1,.6,abs(q.x));
+  gQ = q;
+  return d;
+}
+vec2 map(vec3 p){
+  float d = dumpling(p);
+  vec3 dm = p-gMP;
+  float m = exp(-dot(dm,dm)*4.);
+  d -= m*.11*(1.-3.2*uPress);
+  d += .012*sin(p.x*5.+uTime*2.5)*sin(p.y*6.+uTime*3.1);
+  gDum = d;
+  float fl = p.y+.31;
+  return d<fl ? vec2(d,1.) : vec2(fl,2.);
+}
+vec3 calcN(vec3 p){ vec2 e=vec2(.002,0.);
+  return normalize(vec3(map(p+e.xyy).x-map(p-e.xyy).x, map(p+e.yxy).x-map(p-e.yxy).x, map(p+e.yyx).x-map(p-e.yyx).x)); }
+float shadow(vec3 ro, vec3 rd){ float res=1., t=.1;
+  for(int i=0;i<40;i++){ map(ro+rd*t); float h=gDum; res=min(res, 8.*h/t); t+=clamp(h,.02,.25); if(res<.001||t>5.) break; }
+  return clamp(res,0.,1.); }
+float calcAO(vec3 p, vec3 n){ float o=0., s=1.;
+  for(int i=0;i<4;i++){ float h=.02+.08*float(i); map(p+n*h); o+=(h-gDum)*s; s*=.7; }
+  return clamp(1.-2.2*o,0.,1.); }
+void main(){
+  vec2 fc = gl_FragCoord.xy;
+  vec2 uv = (fc-.5*uRes)/uRes.y;
+  float tq = floor(uTime*8.);
+  if(uStyle<1.5) uv += (vec2(noise(uv*5.+tq), noise(uv*5.+tq+7.))-.5)*.006;
+  vec3 ta = vec3(0.,-.05,0.);
+  vec3 ro = vec3(sin(uRot)*3.9, 2.35, cos(uRot)*3.9);
+  vec3 ww = normalize(ta-ro), uu = normalize(cross(ww,vec3(0.,1.,0.))), vv = cross(uu,ww);
+  vec3 rd = normalize(uv.x*uu+uv.y*vv+1.75*ww);
+  vec2 mm = uMouse*vec2(uRes.x/uRes.y,1.)*.5;
+  vec3 mrd = normalize(mm.x*uu+mm.y*vv+1.75*ww);
+  gMP = ro + mrd*(dot(ta-ro,ww)/dot(mrd,ww));
+
+  float t=0., id=0., minD=1e3;
+  for(int i=0;i<110;i++){
+    vec3 p = ro+rd*t; vec2 h = map(p);
+    minD = min(minD, gDum);
+    if(h.x<.001){ id=h.y; break; }
+    t += h.x*.8; if(t>14.) break;
+  }
+  vec3 p = ro+rd*t;
+  vec3 L = normalize(vec3(-.55,.9,.35));
+  vec3 col = uBg;
+  float r = length(p.xz);
+  if(id>0.){
+    vec3 n = calcN(p);
+    float sh = shadow(p+n*.01, L);
+    if(id<1.5){
+      map(p); vec3 q = gQ;
+      float ao = calcAO(p,n);
+      float diff = clamp(dot(n,L),0.,1.);
+      float tone = clamp(.3+.7*diff,0.,1.)*mix(.8,1.,sh)*mix(.75,1.,ao);
+      float pw = q.x*12./6.2832;
+      float pleatL = (1.-smoothstep(0.,1.5*fwidth(pw),abs(fract(pw)-.5)))*smoothstep(.3,.52,q.y)*smoothstep(1.,.7,abs(q.x));
+      float brown = smoothstep(-.1,-.28,q.y) * (.75+.5*noise(q.xz*6.));
+      float fres = pow(1.-clamp(dot(n,-rd),0.,1.),3.);
+      float spec = pow(clamp(dot(reflect(-L,n),-rd),0.,1.),24.);
+      if(uStyle<.5){
+        vec3 base = mix(uSkin, uA, clamp(brown,0.,1.));
+        float band = tone>.5 ? 1. : tone>.28 ? .88 : .74;
+        col = base*band;
+        col = mix(col, uInk, dots(fc,smoothstep(.5,.05,tone)*.8,6.*uDpr,.785)*.8);
+        col = mix(col, uB, dots(fc+vec2(2.,1.)*uDpr, brown*.9, 5.*uDpr,.26)*.75*clamp(brown,0.,1.));
+        col = mix(col, uSkin*1.04, step(.55,spec));
+        col = mix(col, uInk, pleatL*.9);
+        col = mix(col, uInk, 1.-smoothstep(.16,.3,dot(n,-rd)));
+      } else if(uStyle<1.5){
+        float den = (1.-tone)*.55 + brown*.5;
+        den *= .7+.6*fbm(q.xy*3.+q.z*2.);
+        den = floor(den*5.)/5.;
+        col = mix(uSkin, uInk, clamp(den,0.,1.)*.82);
+        float e = 1.-smoothstep(.1, .2+.1*fbm(fc*.015), dot(n,-rd));
+        col = mix(col, uInk, e*(.55+.45*step(.35,noise(fc*.08))));
+        col = mix(col, uInk, pleatL*.75*step(.3,noise(fc*.12)));
+      } else {
+        vec3 base = uBg*1.6;
+        float v = q.y*16.;
+        float line = 1.-smoothstep(0., fwidth(v)*1.3, abs(fract(v)-.5)*1.);
+        line = 1.-smoothstep(0.,1.4*fwidth(v),abs(fract(v+.5)-.5));
+        float w = q.x*12./6.2832;
+        float pleat = (1.-smoothstep(0.,1.4*fwidth(w),abs(fract(w)-.5)))*smoothstep(.15,.4,q.y);
+        vec3 lc = mix(uA, uSkin, clamp(brown,0.,1.));
+        col = base + lc*line*(.35+.9*tone) + uB*pleat*1.1 + uB*fres*1.3 + lc*spec*.6;
+      }
+    } else {
+      float pan = 1.-smoothstep(1.95,1.97,r);
+      float rim = 1.-smoothstep(0.,.025,abs(r-1.98));
+      float fade = smoothstep(9.,3.,t);
+      if(uStyle<.5){
+        col = mix(uBg, uBg*.93, pan);
+        col = mix(col, uInk, dots(fc,.06*pan,4.*uDpr,.4)*.5);
+        col = mix(col, uB, dots(fc,(1.-sh)*.75,5.*uDpr,.785)*.85);
+        col = mix(col, uInk, rim*fade);
+      } else if(uStyle<1.5){
+        col = mix(uBg, uInk, (1.-sh)*.42*(.6+.8*fbm(p.xz*2.5)));
+        float a = atan(p.z,p.x);
+        float brush = 1.-smoothstep(0., .02+.05*fbm(vec2(a*3.,1.)), abs(r-1.98));
+        col = mix(col, uInk, brush*step(.3,fbm(vec2(a*8.,r*3.)))*fade);
+      } else {
+        vec2 g = abs(fract(p.xz*2.)-.5);
+        float grid = 1.-smoothstep(0.,.03,min(g.x,g.y));
+        col = uBg + uB*grid*.12*pan*fade + uA*rim*1.4*fade;
+        col *= mix(.35,1.,sh);
+      }
+    }
+  }
+  if(id!=1.){
+    if(uStyle<.5){ col = mix(col, uInk, 1.-smoothstep(.012,.022,minD)); }
+    else if(uStyle<1.5){
+      float th = .01+.03*fbm(fc*.012);
+      col = mix(col, uInk, (1.-smoothstep(th,th+.008,minD))*step(.3,noise(fc*.06)));
+      col = mix(col, uInk, exp(-minD*22.)*.1);
+    } else {
+      col += uB*.004/max(minD,.004) + uA*.0015/max(minD,.003);
+    }
+  }
+  if(uStyle<1.5){
+    col *= .94+.06*noise(fc*.6);
+    col *= .97+.03*fbm(fc*.02);
+  } else {
+    col = 1.-exp(-col*1.25);
+  }
+  gl_FragColor = vec4(col,1.);
+}`;
+
+/* ---------- Scene 2: reaction-diffusion lace ---------- */
+const DUMPS = `
+float sdEll2(vec2 p, vec2 r){ float k0=length(p/r); float k1=length(p/(r*r)); return k0*(k0-1.)/k1; }
+float dumps(vec2 p, out vec2 lp, out float idx){
+  float d = 1e3; lp = vec2(0.); idx = 0.;
+  for(int i=0;i<8;i++){
+    float a = float(i)*.7854+.2;
+    vec2 dir = vec2(cos(a),sin(a));
+    vec2 rel = p - dir*.225;
+    vec2 l = vec2(dot(rel,dir), dot(rel,vec2(-dir.y,dir.x)));
+    l.y += 1.6*l.x*l.x - .006;
+    float di = sdEll2(l, vec2(.108,.04));
+    if(di<d){ d=di; lp=l; idx=float(i); }
+  }
+  return d;
+}`;
+const FS_INIT = COMMON + DUMPS + `
+uniform float uSeed; varying vec2 vUv;
+void main(){
+  vec2 p = vUv-.5; vec2 lp; float idx; float dd = dumps(p,lp,idx);
+  float B = 0.;
+  if(dd>0. && dd<.012) B = step(.3, hash(vUv*613.+uSeed));
+  if(length(p)<.43 && dd>0. && hash(floor(vUv*80.)+uSeed*1.7)>.988) B = 1.;
+  gl_FragColor = vec4(1.,B,0.,1.);
+}`;
+const FS_SIM = COMMON + DUMPS + `
+uniform sampler2D uState; uniform vec2 uTexel; uniform vec2 uMouse; uniform float uDown; varying vec2 vUv;
+void main(){
+  vec2 uv = vUv; vec2 e = uTexel;
+  vec4 s = texture2D(uState,uv);
+  vec2 lap = -s.xy
+    + .2*(texture2D(uState,uv+vec2(e.x,0.)).xy + texture2D(uState,uv-vec2(e.x,0.)).xy + texture2D(uState,uv+vec2(0.,e.y)).xy + texture2D(uState,uv-vec2(0.,e.y)).xy)
+    + .05*(texture2D(uState,uv+e).xy + texture2D(uState,uv-e).xy + texture2D(uState,uv+vec2(e.x,-e.y)).xy + texture2D(uState,uv+vec2(-e.x,e.y)).xy);
+  float A = s.x, B = s.y;
+  vec2 p = uv-.5; float r = length(p);
+  float f = mix(.0545,.038, smoothstep(.2,.44,r));
+  float k = mix(.062,.0605, smoothstep(.2,.44,r));
+  float abb = A*B*B;
+  float nA = A + (lap.x - abb + f*(1.-A));
+  float nB = B + (.5*lap.y + abb - (k+f)*B);
+  float age = s.z + .0007*step(.2,B);
+  if(uDown>.5 && length(uv-uMouse)<.013 && r<.44) nB = .9;
+  vec2 lp; float idx; float dd = dumps(p,lp,idx);
+  if(dd<-.004){ nA=1.; nB=0.; }
+  if(r>.445){ nA=1.; nB=0.; }
+  gl_FragColor = vec4(clamp(nA,0.,1.), clamp(nB,0.,1.), min(age,.95), 1.);
+}`;
+const FS_LACE = COMMON + DUMPS + `
+uniform sampler2D uState; uniform vec2 uRes; uniform float uN; uniform float uDpr; uniform float uTime;
+vec4 samp(vec2 uv){ vec2 st = uv*uN-.5; vec2 i = floor(st), f = fract(st);
+  vec4 a = texture2D(uState,(i+vec2(.5,.5))/uN), b = texture2D(uState,(i+vec2(1.5,.5))/uN);
+  vec4 c = texture2D(uState,(i+vec2(.5,1.5))/uN), d = texture2D(uState,(i+vec2(1.5,1.5))/uN);
+  return mix(mix(a,b,f.x),mix(c,d,f.x),f.y); }
+void main(){
+  vec2 fc = gl_FragCoord.xy;
+  float S = min(uRes.x,uRes.y)*.92;
+  vec2 p = (fc-.5*uRes)/S;
+  float tq = floor(uTime*8.);
+  if(uStyle<1.5) p += (vec2(noise(p*9.+tq),noise(p*9.+tq+5.))-.5)*.0025;
+  vec4 s = samp(clamp(p+.5,0.,1.));
+  float r = length(p);
+  float B = s.y, age = s.z;
+  float w = fwidth(B)+1e-4;
+  float lace = smoothstep(.2,.28,B)*step(r,.445);
+  float edge = (1.-smoothstep(0.,1.6*w,abs(B-.24)))*step(r,.445);
+  vec2 lp; float idx; float dd = dumps(p,lp,idx);
+  float inD = 1.-smoothstep(-.0015,.0015,dd);
+  float a = idx*.7854+.2; vec2 dir = vec2(cos(a),sin(a)), per = vec2(-dir.y,dir.x);
+  float nx = lp.x/.108, ny = lp.y/.04;
+  float h = sqrt(max(0.,1.-nx*nx-ny*ny));
+  vec3 n3 = normalize(vec3((nx*dir+ny*per)*.9, h+.15));
+  float diff = clamp(dot(n3, normalize(vec3(-.55,.55,.7))),0.,1.);
+  float seam = (1.-smoothstep(.0,.0025,abs(lp.y)-.0015*abs(sin(lp.x*95.))))*step(abs(nx),.85);
+  float crimp = step(abs(lp.y),.016)*step(fract(lp.x*30.),.18)*step(abs(nx),.8);
+  float outl = 1.-smoothstep(0.,.004,abs(dd));
+  float pan = step(r,.445);
+  float rim = 1.-smoothstep(.0,.012,abs(r-.458));
+  vec3 brownC = mix(uA, uInk, .45);
+  vec3 col = uBg;
+  if(uStyle<.5){
+    col = mix(uBg, uInk, dots(fc,.72*pan,5.*uDpr,.785));
+    vec3 lc = mix(mix(uSkin,uA,smoothstep(0.,.45,age)), brownC, smoothstep(.45,.95,age));
+    col = mix(col, lc, lace);
+    col = mix(col, uB, dots(fc+vec2(2.,1.)*uDpr, age*.55, 4.*uDpr,.26)*lace*.7);
+    col = mix(col, uInk, edge);
+    vec3 dc = uSkin*(diff>.55?1.:diff>.25?.88:.74);
+    dc = mix(dc, uInk, dots(fc,(1.-diff)*.6,5.*uDpr,.785)*.7);
+    dc = mix(dc, uInk, max(seam,crimp*.8));
+    col = mix(col, dc, inD);
+    col = mix(col, uInk, max(outl,rim));
+    col *= .94+.06*noise(fc*.6);
+  } else if(uStyle<1.5){
+    col = mix(uBg, uInk, pan*.1*(.6+.8*fbm(p*8.)));
+    float den = (.12+age*.55)*(.6+.8*fbm(p*30.));
+    col = mix(col, uInk, lace*den);
+    col = mix(col, uInk, edge*.85*step(.25,noise(fc*.1)));
+    vec3 dc = mix(uSkin, uInk, (1.-diff)*.35*(.7+.6*fbm(lp*60.)));
+    dc = mix(dc, uInk, max(seam*.9,crimp*.6));
+    col = mix(col, dc, inD);
+    float th = .002+.004*fbm(fc*.02);
+    col = mix(col, uInk, (1.-smoothstep(th,th+.002,abs(dd)))*step(.3,noise(fc*.07)));
+    float ang = atan(p.y,p.x);
+    col = mix(col, uInk, (1.-smoothstep(0.,.006+.012*fbm(vec2(ang*4.,2.)),abs(r-.458)))*step(.35,fbm(vec2(ang*10.,1.))));
+    col *= .95+.05*fbm(fc*.03);
+  } else {
+    col = uBg + uBg*.5*pan + uB*.05*(1.-smoothstep(0.,.004,abs(fract(r*40.)-.5)))*pan;
+    vec3 lc = mix(uA, uSkin, smoothstep(.3,.95,age));
+    col += lc*lace*.1 + lc*edge*1.3;
+    vec3 dc = uBg*1.8 + uB*max(seam,crimp)*1.1 + uB*diff*.08;
+    col = mix(col, dc, inD);
+    col += uB*outl*1.4 + uB*.0012/max(abs(dd),.0012)*.5;
+    col += uA*rim*1.2;
+    col = 1.-exp(-col*1.25);
+  }
+  gl_FragColor = vec4(col,1.);
+}`;
+
+/* ---------- Particles ---------- */
+const VS_PTS = `
+attribute float aCol; attribute float aSize; uniform float uDpr; uniform float uStyle; varying float vCol;
+void main(){ vCol = aCol; gl_PointSize = aSize*uDpr*(uStyle>1.5 ? 2.4 : 1.); gl_Position = projectionMatrix*modelViewMatrix*vec4(position,1.); }`;
+const FS_PTS = COMMON + `
+varying float vCol;
+void main(){
+  vec2 c = gl_PointCoord-.5; float d = length(c);
+  if(uStyle<.5){
+    if(d>.5) discard;
+    gl_FragColor = vec4(vCol<.62 ? uB : (vCol<.82 ? uInk : uA), 1.);
+  } else if(uStyle<1.5){
+    float edge = .5 - .12*hash(gl_PointCoord*7.+vCol);
+    if(d>edge) discard;
+    gl_FragColor = vec4(uInk, .55+.45*vCol);
+  } else {
+    float g = exp(-d*d*14.);
+    vec3 cc = mix(uA, uB, step(.7,vCol));
+    gl_FragColor = vec4(cc*g*1.4, g);
+  }
+}`;
+
+class Scene{
+  constructor(sec, pr){
+    this.sec = sec; this.canvas = sec.querySelector('canvas'); this.pr = pr; this.visible = false;
+    this.renderer = new THREE.WebGLRenderer({canvas:this.canvas, antialias:false, powerPreference:'high-performance'});
+    this.renderer.setPixelRatio(pr);
+  }
+  size(){ const r = this.sec.getBoundingClientRect(); this.w = Math.max(1,r.width); this.h = Math.max(1,r.height); this.renderer.setSize(this.w,this.h,false); }
+  local(e){ const r = this.canvas.getBoundingClientRect(); return [e.clientX-r.left, e.clientY-r.top]; }
+}
+function quad(mat){ const s = new THREE.Scene(); s.add(new THREE.Mesh(new THREE.PlaneGeometry(2,2), mat)); return s; }
+const CAM = new THREE.Camera();
+
+class Dough extends Scene{
+  constructor(sec){
+    super(sec, Math.min(devicePixelRatio||1, 1.25));
+    this.u = Object.assign(palU(), {uRes:{value:new THREE.Vector2()}, uTime:{value:0}, uMouse:{value:new THREE.Vector2(.25,.05)}, uPress:{value:0}, uRot:{value:.5}, uDpr:{value:this.pr}});
+    this.mat = new THREE.ShaderMaterial({uniforms:this.u, vertexShader:VS, fragmentShader:FS_DOUGH});
+    this.mat.extensions.derivatives = true;
+    this.scene = quad(this.mat);
+    this.mt = new THREE.Vector2(.25,.05); this.press = 0; this.rotX = 0;
+    const c = this.canvas;
+    c.addEventListener('pointermove', e=>{ const [x,y] = this.local(e); this.mt.set(x/this.w*2-1, -(y/this.h*2-1)); });
+    c.addEventListener('pointerleave', ()=>{ this.mt.set(.25,.05); this.press = 0; });
+    c.addEventListener('pointerdown', ()=>{ this.press = 1; });
+    addEventListener('pointerup', ()=>{ this.press = 0; });
+  }
+  resize(){ this.size(); this.u.uRes.value.set(this.w*this.pr, this.h*this.pr); }
+  frame(t){
+    const u = this.u;
+    u.uMouse.value.lerp(this.mt, .12);
+    u.uPress.value += (this.press-u.uPress.value)*.15;
+    this.rotX += (this.mt.x*.5-this.rotX)*.05;
+    u.uRot.value = (reduce?0:t*.16) + .5 + this.rotX;
+    u.uTime.value = t;
+    this.renderer.render(this.scene, CAM);
+  }
+  setStyle(){ applyPal(this.u); }
+}
+
+class Lace extends Scene{
+  constructor(sec){
+    super(sec, Math.min(devicePixelRatio||1, 1.5));
+    const N = this.N = 384;
+    const r = this.renderer, gl = r.getContext();
+    const fl = r.capabilities.isWebGL2 && gl.getExtension('EXT_color_buffer_float');
+    const opt = {type: fl ? THREE.FloatType : THREE.HalfFloatType, format:THREE.RGBAFormat, minFilter:THREE.NearestFilter, magFilter:THREE.NearestFilter, depthBuffer:false, stencilBuffer:false};
+    this.rt = [new THREE.WebGLRenderTarget(N,N,opt), new THREE.WebGLRenderTarget(N,N,opt)];
+    this.cur = 0;
+    this.initMat = new THREE.ShaderMaterial({uniforms:Object.assign(palU(),{uSeed:{value:0}}), vertexShader:VS, fragmentShader:FS_INIT});
+    this.simU = Object.assign(palU(), {uState:{value:null}, uTexel:{value:new THREE.Vector2(1/N,1/N)}, uMouse:{value:new THREE.Vector2(-1,-1)}, uDown:{value:0}});
+    this.simMat = new THREE.ShaderMaterial({uniforms:this.simU, vertexShader:VS, fragmentShader:FS_SIM});
+    this.u = Object.assign(palU(), {uState:{value:null}, uRes:{value:new THREE.Vector2()}, uN:{value:N}, uDpr:{value:this.pr}, uTime:{value:0}});
+    this.viewMat = new THREE.ShaderMaterial({uniforms:this.u, vertexShader:VS, fragmentShader:FS_LACE});
+    this.viewMat.extensions.derivatives = true;
+    this.scene = quad(this.initMat); this.mesh = this.scene.children[0];
+    this.down = false; this.started = false;
+    const c = this.canvas;
+    const mv = e=>{ const [x,y] = this.local(e); const S = Math.min(this.w,this.h)*.92; this.simU.uMouse.value.set((x-this.w/2)/S+.5, (this.h/2-y)/S+.5); };
+    c.addEventListener('pointerdown', e=>{ this.down = true; mv(e); });
+    c.addEventListener('pointermove', mv);
+    addEventListener('pointerup', ()=>{ this.down = false; });
+    c.addEventListener('pointerleave', ()=>{ this.down = false; });
+  }
+  reset(){
+    this.initMat.uniforms.uSeed.value = Math.random()*100;
+    this.mesh.material = this.initMat;
+    this.renderer.setRenderTarget(this.rt[0]); this.renderer.render(this.scene, CAM);
+    this.cur = 0; this.step(this.warm||700);
+  }
+  step(n){
+    this.mesh.material = this.simMat;
+    for(let i=0;i<n;i++){
+      this.simU.uState.value = this.rt[this.cur].texture;
+      this.renderer.setRenderTarget(this.rt[1-this.cur]);
+      this.renderer.render(this.scene, CAM);
+      this.cur = 1-this.cur;
+    }
+    this.renderer.setRenderTarget(null);
+  }
+  resize(){ this.size(); this.u.uRes.value.set(this.w*this.pr, this.h*this.pr); }
+  frame(t){
+    if(!this.started){ this.started = true; this.reset(); }
+    this.simU.uDown.value = this.down ? 1 : 0;
+    this.step(reduce ? 4 : 12);
+    this.u.uState.value = this.rt[this.cur].texture; this.u.uTime.value = t;
+    this.mesh.material = this.viewMat;
+    this.renderer.render(this.scene, CAM);
+  }
+  setStyle(){ applyPal(this.u); }
+}
+
+class Flour extends Scene{
+  constructor(sec){
+    super(sec, Math.min(devicePixelRatio||1, 2));
+    this.MAX = 24000;
+    const M = this.MAX;
+    this.pos = new Float32Array(M*3); this.vel = new Float32Array(M*2); this.tgt = new Float32Array(M*2);
+    this.has = new Uint8Array(M); this.delay = new Float32Array(M);
+    this.col = new Float32Array(M); this.sz = new Float32Array(M);
+    for(let i=0;i<M;i++){ this.col[i] = Math.random(); }
+    const g = this.geo = new THREE.BufferGeometry();
+    this.pa = new THREE.BufferAttribute(this.pos,3); this.pa.setUsage(THREE.DynamicDrawUsage);
+    g.setAttribute('position', this.pa);
+    g.setAttribute('aCol', new THREE.BufferAttribute(this.col,1));
+    this.sa = new THREE.BufferAttribute(this.sz,1); g.setAttribute('aSize', this.sa);
+    this.u = Object.assign(palU(), {uDpr:{value:this.pr}});
+    this.mat = new THREE.ShaderMaterial({uniforms:this.u, vertexShader:VS_PTS, fragmentShader:FS_PTS, transparent:true, depthTest:false, depthWrite:false});
+    this.pts = new THREE.Points(g, this.mat); this.pts.frustumCulled = false;
+    this.scene = new THREE.Scene(); this.scene.add(this.pts);
+    this.cam = new THREE.OrthographicCamera(-1,1,1,-1,-10,10);
+    this.mx = 1e5; this.my = 1e5; this.t0 = null; this.scatter = 0; this.n = 0;
+    const c = this.canvas;
+    c.addEventListener('pointermove', e=>{ const [x,y] = this.local(e); this.mx = x-this.w/2; this.my = this.h/2-y; });
+    c.addEventListener('pointerleave', ()=>{ this.mx = this.my = 1e5; });
+    c.addEventListener('pointerdown', e=>{
+      const [x,y] = this.local(e); const cx = x-this.w/2, cy = this.h/2-y;
+      for(let i=0;i<this.n;i++){ const dx = this.pos[i*3]-cx, dy = this.pos[i*3+1]-cy; const d = Math.hypot(dx,dy)+1; const f = 900/(d+60)+Math.random()*6;
+        this.vel[i*2] += dx/d*f; this.vel[i*2+1] += dy/d*f; }
+      this.scatter = this.now+1.1;
+    });
+    this.now = 0;
+  }
+  build(){
+    const w = this.w, h = this.h;
+    const cv = document.createElement('canvas'); cv.width = Math.ceil(w); cv.height = Math.ceil(h);
+    const x = cv.getContext('2d');
+    const fs = Math.min(w*.2, h*.4);
+    x.fillStyle = '#000'; x.textAlign = 'center'; x.textBaseline = 'middle';
+    x.font = `700 ${fs}px "Noto Serif TC","Noto Sans TC","Noto Sans CJK TC","Songti TC","PingFang TC",serif`;
+    x.fillText('現煎鍋貼', w/2, h*.42);
+    x.font = `700 ${fs*.16}px "Noto Sans TC","Noto Sans CJK TC","PingFang TC",sans-serif`;
+    x.fillText('冰 花 煎 餃 ・ 每 日 手 包', w/2, h*.42+fs*.72);
+    const data = x.getImageData(0,0,cv.width,cv.height).data;
+    const pts = [];
+    for(let yy=0; yy<cv.height; yy+=2) for(let xx=0; xx<cv.width; xx+=2){ if(data[(yy*cv.width+xx)*4+3]>128) pts.push(xx,yy); }
+    const want = Math.min(this.MAX*.85|0, (w<700?8000:15000));
+    const tc = Math.min(want, pts.length/2|0);
+    const dust = Math.min(this.MAX - tc, w<700?1500:3500);
+    this.n = tc + dust;
+    for(let i=0;i<this.n;i++){
+      const isT = i<tc;
+      this.has[i] = isT ? 1 : 0;
+      if(isT){ const k = (Math.random()*pts.length/2|0)*2; this.tgt[i*2] = pts[k]-w/2+(Math.random()-.5)*2; this.tgt[i*2+1] = h/2-pts[k+1]+(Math.random()-.5)*2; }
+      else { this.tgt[i*2] = (Math.random()-.5)*w; this.tgt[i*2+1] = (Math.random()-.5)*h; }
+      const gx = (Math.random()+Math.random()+Math.random()-1.5)*w*.22;
+      const gy = -h/2 + Math.abs(Math.random()+Math.random()-1)*h*.12 + 10;
+      if(reduce && isT){ this.pos[i*3] = this.tgt[i*2]; this.pos[i*3+1] = this.tgt[i*2+1]; }
+      else if(isT){ this.pos[i*3] = gx; this.pos[i*3+1] = gy; }
+      else { this.pos[i*3] = this.tgt[i*2]; this.pos[i*3+1] = this.tgt[i*2+1]; }
+      this.pos[i*3+2] = 0;
+      this.vel[i*2] = this.vel[i*2+1] = 0;
+      this.delay[i] = isT ? .25 + (this.tgt[i*2]/w+.5)*1.4 + Math.random()*.5 : 0;
+      this.sz[i] = isT ? (1.2 + Math.random()*1.6)*(w<700?.85:1) : .8+Math.random()*1.6;
+    }
+    this.geo.setDrawRange(0,this.n);
+    this.sa.needsUpdate = true;
+    this.t0 = null;
+  }
+  resize(){ this.size(); const w=this.w,h=this.h; Object.assign(this.cam,{left:-w/2,right:w/2,top:h/2,bottom:-h/2}); this.cam.updateProjectionMatrix(); this.build(); }
+  frame(t){
+    this.now = t;
+    if(this.t0===null) this.t0 = t;
+    const el = t-this.t0, P = this.pos, V = this.vel, T = this.tgt, R2 = 90*90, sc = t<this.scatter;
+    const w2 = this.w/2, h2 = this.h/2;
+    for(let i=0;i<this.n;i++){
+      const ix = i*3, iv = i*2;
+      let x = P[ix], y = P[ix+1], ax = 0, ay = 0;
+      if(this.has[i]){
+        if(!sc && el>this.delay[i]){ ax = (T[iv]-x)*.05; ay = (T[iv+1]-y)*.05; }
+        ax += (Math.random()-.5)*.08; ay += (Math.random()-.5)*.08;
+      } else {
+        ax = Math.sin(y*.01+t*.7+i)*.02; ay = .03 + Math.cos(x*.01+t*.5)*.02;
+      }
+      const dx = x-this.mx, dy = y-this.my, d2 = dx*dx+dy*dy;
+      if(d2<R2){ const d = Math.sqrt(d2)+.01, f = (1-d2/R2)*3.2; ax += dx/d*f; ay += dy/d*f; }
+      let vx = (V[iv]+ax)*.88, vy = (V[iv+1]+ay)*.88;
+      x += vx; y += vy;
+      if(!this.has[i]){ if(y>h2) y = -h2; if(x>w2) x = -w2; if(x<-w2) x = w2; }
+      V[iv] = vx; V[iv+1] = vy; P[ix] = x; P[ix+1] = y;
+    }
+    this.pa.needsUpdate = true;
+    this.renderer.render(this.scene, this.cam);
+  }
+  setStyle(){
+    applyPal(this.u);
+    this.renderer.setClearColor(new THREE.Color(STYLES[styleKey].bg), 1);
+    this.mat.blending = styleKey==='neon' ? THREE.AdditiveBlending : THREE.NormalBlending;
+    this.mat.needsUpdate = true;
+  }
+}
+
+const scenes = [];
+function tryMake(C, id){
+  const sec = document.getElementById(id);
+  try{ const s = new C(sec); scenes.push(s); return s; }
+  catch(e){ console.error(e); sec.insertAdjacentHTML('beforeend','<div class="err">這台裝置的瀏覽器不支援這個 WebGL 效果。</div>'); }
+}
+tryMake(Dough,'s-dough');
+const lace = tryMake(Lace,'s-lace');
+const flour = tryMake(Flour,'s-flour');
+document.getElementById('lace-reset').addEventListener('click', ()=> lace && lace.reset());
+
+function setStyle(k){
+  styleKey = k; const P = STYLES[k];
+  document.body.dataset.style = k;
+  document.querySelectorAll('.switch button').forEach(b=>b.setAttribute('aria-pressed', b.dataset.s===k ? 'true' : 'false'));
+  document.getElementById('dir-k').textContent = P.k;
+  document.getElementById('dir-t').textContent = P.t;
+  document.getElementById('dir-d').textContent = P.d;
+  scenes.forEach(s=>s.setStyle());
+  try{ localStorage.setItem('gt-style', k); }catch(e){}
+}
+document.querySelectorAll('.switch button').forEach(b=>b.addEventListener('click', ()=>setStyle(b.dataset.s)));
+
+
+const resizeAll = ()=> scenes.forEach(s=>s.resize());
+const io = new IntersectionObserver(es=>es.forEach(e=>{ const s = scenes.find(s=>s.sec===e.target); if(s) s.visible = e.isIntersecting; }), {rootMargin:'80px'});
+scenes.forEach(s=>io.observe(s.sec));
+let rt; addEventListener('resize', ()=>{ clearTimeout(rt); rt = setTimeout(resizeAll, 150); });
+
+setStyle(styleKey);
+resizeAll();
+const fontReady = document.fonts ? Promise.race([document.fonts.load('700 100px "Noto Serif TC"', '現煎鍋貼'), new Promise(r=>setTimeout(r,6000))]) : Promise.resolve();
+let built = false;
+fontReady.then(()=>{ if(flour){ flour.resize(); built = true; } });
+if(document.fonts) document.fonts.addEventListener('loadingdone', ()=>{ if(flour && built) flour.resize(); });
+
+function loop(ms){
+  const t = ms/1000;
+  for(const s of scenes){ if(s.visible){ try{ s.frame(t); }catch(e){ console.error(e); s.visible = false; } } }
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+})();
+</script>
