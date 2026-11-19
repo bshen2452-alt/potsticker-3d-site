@@ -328,6 +328,10 @@ legend{font-weight:700;font-size:14px;margin-bottom:8px;padding:0}
 .f [aria-invalid="true"]{border-color:var(--p-red);background:#fdf1ee}
 .note{font-size:13px;color:var(--p-muted);margin:-6px 0 14px}
 .note.warn{color:var(--p-red)}
+.hp{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+.co-err{margin:0 0 4px;padding:10px 12px;border:1.5px solid var(--p-red);background:#fdf1ee;color:var(--p-red);font-size:13.5px;font-weight:700}
+.co-demo{margin:10px 0 0;text-align:center}
+form[aria-busy="true"] .go{cursor:progress}
 .osum{border:1.5px dashed var(--p-ink);padding:12px 14px;margin:6px 0 16px;background:var(--p-card)}
 .osum ul{list-style:none;margin:0 0 6px;padding:0;font-size:13.5px}
 .osum li{display:flex;justify-content:space-between;gap:10px;padding:2px 0}
@@ -595,6 +599,7 @@ body.lock{overflow:hidden}
 
 <div class="toast" id="toast" role="status" aria-live="polite"><span class="ti">✓</span><span id="toast-t"></span><button type="button" id="toast-btn">查看</button></div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="order-config.js"></script>
 <script>
 (function(){
 const canvas = document.getElementById('c');
@@ -1375,6 +1380,7 @@ function openCheckout(){
   const hasGifts = cart.some(l => ALL[l.id].gift);
   if(coMode === 'delivery' && !onlyGifts) coMode = 'takeout';
   if(onlyGifts) coMode = 'delivery';
+  coReq = null; coBusy = false;
   coBody.innerHTML = `
     <form id="co-form" novalidate>
       <fieldset>
@@ -1392,8 +1398,11 @@ function openCheckout(){
         <div class="f"><label for="co-tel">手機</label><input id="co-tel" name="tel" type="tel" inputmode="tel" autocomplete="tel" placeholder="0912345678" required><span class="e" id="co-tel-e"></span></div>
       </div>
       <div class="f"><label for="co-note-t">備註（選填）</label><textarea id="co-note-t" name="note" placeholder="例如：醬料多一包、不要辣"></textarea><span class="e"></span></div>
+      <div class="hp" aria-hidden="true"><label>網站<input name="website" tabindex="-1" autocomplete="off"></label></div>
       <div class="osum" id="co-sum"></div>
-      <button class="go" type="submit">送出訂單</button>
+      <p class="co-err" id="co-err" role="alert" hidden></p>
+      <button class="go" type="submit" id="co-go">送出訂單</button>
+      ${ORDER_URL ? '' : '<p class="note co-demo">示範模式：尚未設定訂單網址，送出後不會傳送任何資料。</p>'}
     </form>`;
   renderWhere(); renderSum();
   $$('input[name="mode"]', coBody).forEach(r => r.addEventListener('change', () => { coMode = r.value; renderWhere(); renderSum(); }));
@@ -1421,24 +1430,74 @@ function renderSum(){
     <div class="row total"><span>總金額</span><span>${money(sub+ship)}</span></div>`;
 }
 function fieldErr(id, msg){ const el = $('#'+id); el.setAttribute('aria-invalid', msg ? 'true' : 'false'); $('#'+id+'-e').textContent = msg || ''; return !msg; }
-function submitOrder(e){
+/* Orders go to a Google Apps Script web app (gas/Code.gs) that writes them to a spreadsheet.
+   Without an endpoint in order-config.js the checkout stays a local demo. */
+const ORDER_URL = ((window.JJ_ORDER_CONFIG || {}).endpoint || '').trim();
+let coReq = null, coBusy = false;
+const newReqId = () => (crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 12));
+async function sendOrder(payload){
+  const ctl = new AbortController(), t = setTimeout(() => ctl.abort(), 20000);
+  try{
+    // text/plain keeps this a "simple" request, so Apps Script needs no CORS preflight.
+    const r = await fetch(ORDER_URL, {method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'}, body:JSON.stringify(payload), signal:ctl.signal, redirect:'follow'});
+    const j = await r.json();
+    if(!j.ok) throw new Error(j.error || '訂單送出失敗');
+    return j;
+  } catch(err){
+    if(err.name === 'AbortError' || err instanceof TypeError) throw new Error('連線失敗，請確認網路後再按一次「送出訂單」。');
+    if(err instanceof SyntaxError) throw new Error('訂單系統暫時無法回應，請稍後再試。');
+    throw err;
+  } finally { clearTimeout(t); }
+}
+function setBusy(on){
+  coBusy = on;
+  const b = $('#co-go'); if(b){ b.disabled = on; b.textContent = on ? '送出中…' : '送出訂單'; }
+  $('#co-form') && $('#co-form').setAttribute('aria-busy', on ? 'true' : 'false');
+}
+async function submitOrder(e){
   e.preventDefault();
+  if(coBusy) return;
+  const errBox = $('#co-err'); errBox.hidden = true;
   const name = $('#co-name').value.trim(), tel = $('#co-tel').value.replace(/[\s-]/g,'');
   let ok = fieldErr('co-name', name ? '' : '請填寫姓名');
   ok = fieldErr('co-tel', /^09\d{8}$/.test(tel) ? '' : '請填寫 09 開頭的 10 碼手機號碼') && ok;
   if(coMode === 'delivery'){ const a = $('#co-addr').value.trim(); ok = fieldErr('co-addr', a.length >= 8 ? '' : '請填寫完整地址（含縣市與門牌）') && ok; }
   if(!ok){ const bad = $('[aria-invalid="true"]', coBody); bad && bad.focus(); return; }
-  const d = new Date(), no = 'JJ' + String(d.getMonth()+1).padStart(2,'0') + String(d.getDate()).padStart(2,'0') + '-' + String(Math.floor(Math.random()*900)+100);
-  const total = subtotal() + shipping(coMode, subtotal());
+  let total = subtotal() + shipping(coMode, subtotal());
+  let no;
+  if(ORDER_URL){
+    coReq = coReq || newReqId();   // same id on retry, so a resend never creates a second order
+    const v = sel => { const el = $(sel); return el ? el.value : ''; };
+    const payload = {
+      requestId: coReq, mode: coMode, name, tel, note: $('#co-note-t').value.trim(),
+      store: v('#co-store'), time: v('#co-time'), people: v('#co-ppl'), date: v('#co-date'), addr: v('#co-addr').trim(),
+      items: cart.map(l => ({id:l.id, qty:l.qty})), clientTotal: total,
+      website: $('#co-form [name="website"]').value
+    };
+    setBusy(true);
+    try{
+      const res = await sendOrder(payload);
+      no = res.orderId; total = res.total;
+    } catch(err){
+      setBusy(false);
+      errBox.textContent = err.message; errBox.hidden = false;
+      $('#co-go').focus();
+      return;
+    }
+    setBusy(false);
+  } else {
+    const d = new Date();
+    no = 'JJ' + String(d.getMonth()+1).padStart(2,'0') + String(d.getDate()).padStart(2,'0') + '-' + String(Math.floor(Math.random()*900)+100);
+  }
   let where = '';
   if(coMode === 'delivery') where = `禮盒將於 ${$('#co-date').value} 送達，出貨時會以簡訊通知。`;
   else { const s = STORES.find(x => x.id === $('#co-store').value); const tm = coMode==='takeout' ? $('#co-time').value : null;
     where = coMode === 'dinein' ? `已為你在${s.name}保留 ${$('#co-ppl').value}，到店報手機末三碼即可。` : `請${tm==='asap' ? '約 15 分鐘後' : '於 ' + tm + ' '}至${s.name}取餐（${s.addr}）。`; }
   coBody.innerHTML = `<div class="ok-box">
       <div class="ok-ic"><svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="#1e1830" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></div>
-      <h3>訂單已建立</h3>
-      <div class="no">${no}</div>
-      <p>${esc(name)}，謝謝你的訂購！${esc(where)} 應付金額 ${money(total)}。</p>
+      <h3>${ORDER_URL ? '訂單已送出' : '訂單已建立（示範）'}</h3>
+      <div class="no">${esc(no)}</div>
+      <p>${esc(name)}，謝謝你的訂購！${esc(where)} 應付金額 ${money(total)}。${ORDER_URL ? '請記下訂單編號，取餐或查詢時會用到。' : ''}</p>
       <button class="go" type="button" id="co-done">完成</button>
     </div>`;
   cart = []; save(); renderCart();
