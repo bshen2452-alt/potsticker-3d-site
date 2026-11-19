@@ -12,7 +12,11 @@ Outputs
 from pathlib import Path
 
 ROOT = Path(__file__).parent
-THREE = '<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>\n'
+THREE = (
+    '<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>\n'
+    # Order endpoint lives in its own file so it can be changed without rebuilding.
+    '<script src="order-config.js"></script>\n'
+)
 
 RESET = """<style>
 :root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
