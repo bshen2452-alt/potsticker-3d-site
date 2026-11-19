@@ -47,6 +47,7 @@ def main() -> None:
         + (src / "b_engine.js").read_text(encoding="utf-8")
         + (src / "c_engine_tail.js").read_text(encoding="utf-8")
         + (src / "d_shop.js").read_text(encoding="utf-8")
+        + (src / "e_track.js").read_text(encoding="utf-8")
     )
     (ROOT / "site.html").write_text(fragment, encoding="utf-8")
     (ROOT / "index.html").write_text(wrap(fragment), encoding="utf-8")
