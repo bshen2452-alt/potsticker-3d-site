@@ -271,6 +271,7 @@ function openCheckout(){
   if(coMode === 'delivery' && !onlyGifts) coMode = 'takeout';
   if(onlyGifts) coMode = 'delivery';
   coReq = null; coBusy = false;
+  $('#co-title').textContent = '確認訂單';
   coBody.innerHTML = `
     <form id="co-form" novalidate>
       <fieldset>
@@ -377,7 +378,23 @@ async function submitOrder(e){
     setBusy(false);
   } else {
     const d = new Date();
-    no = 'JJ' + String(d.getMonth()+1).padStart(2,'0') + String(d.getDate()).padStart(2,'0') + '-' + String(Math.floor(Math.random()*900)+100);
+    no = window.JJTrack ? JJTrack.demoId() : 'JJ' + String(d.getMonth()+1).padStart(2,'0') + String(d.getDate()).padStart(2,'0') + '-' + String(Math.floor(Math.random()*900)+100);
+  }
+  // Hand the order to the tracker (e_track.js): the modal turns into a pickup ticket in place.
+  if(window.JJTrack){
+    const s = coMode === 'delivery' ? null : STORES.find(x => x.id === $('#co-store').value);
+    const tm = coMode === 'takeout' ? $('#co-time').value : '';
+    const sub = subtotal();
+    const rec = {
+      id: no, tel3: tel.slice(-3), mode: coMode, store: s ? s.name : '',
+      when: coMode === 'delivery' ? $('#co-date').value : coMode === 'takeout' ? (tm === 'asap' ? '盡快（約 15 分鐘）' : tm) : '',
+      people: coMode === 'dinein' ? $('#co-ppl').value : '',
+      items: cart.map(l => ({name: ALL[l.id].name, qty: l.qty, sum: ALL[l.id].price * l.qty})),
+      subtotal: sub, shipping: Math.max(0, total - sub), total, createdAt: Date.now(), demo: !ORDER_URL
+    };
+    cart = []; save(); renderCart();
+    JJTrack.afterOrder(rec);
+    return;
   }
   let where = '';
   if(coMode === 'delivery') where = `禮盒將於 ${$('#co-date').value} 送達，出貨時會以簡訊通知。`;
@@ -562,7 +579,7 @@ $('#news').addEventListener('submit', e => {
 const nav = $('#nav'), mb = $('#menu-btn');
 mb.addEventListener('click', () => { const o = !nav.classList.contains('open'); nav.classList.toggle('open', o); mb.setAttribute('aria-expanded', o); mb.textContent = o ? '關閉' : '選單'; });
 $$('a', nav).forEach(a => a.addEventListener('click', () => { nav.classList.remove('open'); mb.setAttribute('aria-expanded','false'); mb.textContent = '選單'; }));
-const secIds = ['hero','brand','featured','order','lace','gift','stores','contact'];
+const secIds = ['hero','brand','featured','order','lace','gift','stores','track','contact'];
 const navIO = new IntersectionObserver(es => es.forEach(e => {
   if(!e.isIntersecting) return;
   $$('a', nav).forEach(a => a.toggleAttribute('aria-current', a.getAttribute('href') === '#' + e.target.id));
@@ -582,5 +599,7 @@ const statIO = new IntersectionObserver(es => es.forEach(e => {
 $$('[data-count]').forEach(el => { el.textContent = el.dataset.count === '10000' ? '10,000' : el.dataset.count; statIO.observe(el); });
 
 renderCart();
+// shared with e_track.js (order tracking), which loads right after this script
+window.JJ = { $, $$, money, esc, ORDER_URL, openLayerEl, closeLayer, isOpen: el => openLayer === el, toast: showToast };
 })();
 </script>
