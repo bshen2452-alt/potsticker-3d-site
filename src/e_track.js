@@ -4,7 +4,8 @@
    raw (ink) → cooking (halftone) → ready (neon) → done (seal).
    Demo mode (no ORDER_URL): progress is simulated from the order's age, fast-forwarded so it is watchable.
    With an endpoint: polls GET ?action=status&id=&tel= and expects
-     { ok:true, status:'已收到'|'製作中'|'可取餐'|'已出貨'|'已完成'|'已取消', order?:{...same fields as rec} }
+     { ok:true, status:'已收到'|'製作中'|'可取餐'|'已出貨'|'已完成'|'已取消', order:{mode, store, when, people, items, subtotal, shipping, total, createdAt} }
+   (gas/Code.gs lookup()). The phone's last 3 digits are required because order ids are sequential.
    Orders placed on this device are kept in localStorage ('jj-orders') so the ticket can be reopened. */
 (function(){
 const J = window.JJ; if(!J) return;
@@ -106,7 +107,7 @@ function ticketHtml(o){
         <dt>取餐方式</dt><dd>${way}</dd>
         ${whenRow[1] ? `<dt>${whenRow[0]}</dt><dd>${esc(whenRow[1])}</dd>` : ''}
         <dt>下單時間</dt><dd>${o.createdAt ? tpHM.format(new Date(o.createdAt)) : '—'}</dd>
-        <dt>品項</dt><dd><ul class="tk-items">${(o.items || []).map(it => `<li><span>${esc(it.name)} × ${it.qty}</span><span>${money(it.sum)}</span></li>`).join('')}</ul></dd>
+        <dt>品項</dt><dd><ul class="tk-items">${(o.items || []).map(it => `<li><span>${esc(it.name)} × ${it.qty}</span><span>${it.sum != null ? money(it.sum) : ''}</span></li>`).join('')}</ul></dd>
         ${o.mode === 'delivery' ? `<dt>運費</dt><dd>${o.shipping ? money(o.shipping) : '免運'}</dd>` : ''}
         <dt class="sum">應付總額</dt><dd class="sum">${money(o.total || 0)}</dd>
       </dl>
@@ -121,15 +122,15 @@ function ticketHtml(o){
 const mounts = new Set();
 function mount(box, o, opt = {}){
   box.innerHTML = ticketHtml(o);
-  const m = {el: $('.ticket', box), id: o.id, stage: null, lastPoll: 0};
+  const m = {el: $('.ticket', box), id: o.id, stage: null};
   if(opt.print && !reduce) m.el.classList.add('print-in');
   const sim = $('[data-r="sim"]', m.el);
   if(sim) sim.addEventListener('click', () => { const r = find(m.id); if(!r) return; r.doneAt = Date.now(); put(r); tick(); });
   const rf = $('[data-r="refresh"]', m.el);
-  if(rf) rf.addEventListener('click', () => poll(m));
+  if(rf) rf.addEventListener('click', () => poll(m.id));
   mounts.add(m);
   update(m, o);
-  if(!o.demo && ORDER_URL) poll(m);
+  if(!o.demo && ORDER_URL && !settled(o)) poll(o.id);
   return m;
 }
 function update(m, o){
@@ -167,15 +168,19 @@ async function fetchStatus(id, tel3){
     return j;
   } finally { clearTimeout(t); }
 }
-async function poll(m){
-  m.lastPoll = Date.now();
-  const o = find(m.id); if(!o || o.demo || !ORDER_URL) return;
+const lastPoll = {};
+async function poll(id){
+  lastPoll[id] = Date.now();
+  const o = find(id); if(!o || o.demo || !ORDER_URL) return;
   try{
     const j = await fetchStatus(o.id, o.tel3);
-    if(j.status && FROM_SHEET[j.status]) o.status = FROM_SHEET[j.status];
-    o.updated = Date.now(); put(o); update(m, o);
+    const cur = find(id) || o;
+    if(j.status && FROM_SHEET[j.status]) cur.status = FROM_SHEET[j.status];
+    cur.updated = Date.now(); put(cur);
+    tick();
   }catch(e){ /* keep the last known state; the next poll retries */ }
 }
+const settled = o => ['done', 'cancelled'].includes(stageOf(o));
 
 /* ---------- open the ticket ---------- */
 function openTicket(o, opt = {}){
@@ -287,12 +292,18 @@ function watch(){
 btn.addEventListener('click', () => { const a = latestActive(); if(a) openTicket(a); });
 
 function tick(){
+  const due = new Set();
   for(const m of mounts){
     if(!m.el.isConnected){ mounts.delete(m); continue; }
     const o = find(m.id); if(!o) continue;
     update(m, o);
-    if(!o.demo && ORDER_URL && !document.hidden && Date.now() - m.lastPoll > POLL) poll(m);
+    due.add(o);
   }
+  // real orders: keep asking even when no ticket is open, so the header dot and toast still fire
+  const a = latestActive(); if(a) due.add(a);
+  if(ORDER_URL && !document.hidden) due.forEach(o => {
+    if(!o.demo && !settled(o) && Date.now() - (lastPoll[o.id] || 0) > POLL) poll(o.id);
+  });
   watch();
 }
 setInterval(tick, 1000);

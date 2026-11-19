@@ -2,6 +2,7 @@
  * 煎記鍋貼 · 線上訂單接收程式（Google Apps Script 網頁應用程式）
  *
  * 網站結帳 → POST 到這支程式 → 驗證、重新計價 → 寫入試算表「訂單」工作表。
+ * 訂單查詢 → GET ?action=status&id=訂單編號&tel=手機末三碼 → 回傳狀態與品項（不含姓名、手機、地址）。
  * 安裝與部署步驟見同資料夾的 README.md。
  *
  * 價格與門市以這裡為準，不信任網頁送來的金額。
@@ -45,6 +46,15 @@ const SHIPPING_FEE = 150;
 const HEADERS = ['下單時間', '訂單編號', '狀態', '取餐方式', '門市', '取餐時間／到貨日', '人數',
   '姓名', '手機', '宅配地址', '品項', '件數', '小計', '運費', '總金額', '備註', '請求編號'];
 const COL_REQUEST_ID = HEADERS.length;   // 最後一欄，用來防止重複建單
+const COL_STATUS = 3;
+
+// 「狀態」欄的下拉選單。店員改這一欄，顧客在網站上的取餐單就會跟著變
+const STATUSES = ['已收到', '製作中', '可取餐', '已出貨', '已完成', '已取消'];
+
+// 訂單編號是流水號，猜得到，所以查詢必須附手機末三碼；同一張單答錯太多次就暫時鎖住
+const LOOKUP_MAX_FAILS = 5;
+const LOOKUP_LOCK_SECONDS = 600;
+const NOT_FOUND = '查無此訂單，請確認訂單編號與手機末三碼';
 
 /* ---------- 入口 ---------- */
 
@@ -81,10 +91,12 @@ function doPost(e) {
       order.subtotal, order.shipping, order.total, order.note, order.requestId
     ];
     const r = sheet.getLastRow() + 1;
+    if (r > sheet.getMaxRows()) sheet.insertRowsAfter(sheet.getMaxRows(), 200);
     const range = sheet.getRange(r, 1, 1, row.length);
     // 文字欄位設成「純文字」，手機開頭的 0 才不會消失，也不會被當成公式執行
     range.setNumberFormats([row.map((v, i) => i === 0 ? 'yyyy-mm-dd hh:mm:ss' : typeof v === 'number' ? '#,##0' : '@')]);
     range.setValues([row]);
+    sheet.getRange(r, COL_STATUS).setDataValidation(statusRule());
     SpreadsheetApp.flush();
     return reply({ ok: true, orderId: orderId, total: order.total });
   } catch (err) {
@@ -95,9 +107,76 @@ function doPost(e) {
   }
 }
 
-// 用瀏覽器打開部署網址時會看到這個，用來確認程式有在運作
-function doGet() {
+// ?action=status 是網站的訂單查詢；直接用瀏覽器打開部署網址則回傳健康檢查，用來確認程式有在運作
+function doGet(e) {
+  const p = (e && e.parameter) || {};
+  if (p.action === 'status') {
+    try {
+      return reply(lookup(String(p.id || ''), String(p.tel || '')));
+    } catch (err) {
+      console.error(err);
+      return reply({ ok: false, error: '查詢失敗，請稍後再試' });
+    }
+  }
   return reply({ ok: true, service: '煎記鍋貼訂單', time: new Date().toISOString() });
+}
+
+/* ---------- 訂單查詢 ---------- */
+
+// 只回傳取餐單需要的欄位：姓名、手機、地址、備註都不回傳
+function lookup(id, tel) {
+  id = id.trim().toUpperCase();
+  tel = tel.trim();
+  if (!/^JJ\d{8}-\d{3}$/.test(id) || !/^\d{3}$/.test(tel)) return { ok: false, error: NOT_FOUND };
+
+  const cache = CacheService.getScriptCache();
+  const failKey = 'lookup-fail:' + id;
+  const fails = Number(cache.get(failKey)) || 0;
+  if (fails >= LOOKUP_MAX_FAILS) return { ok: false, error: '查詢錯誤次數過多，請 10 分鐘後再試' };
+
+  const row = findByOrderId(getSheet(), id);
+  // 查無訂單與末三碼不符回傳同一句話，避免被拿來試探哪些編號存在
+  if (!row || String(row[8]).slice(-3) !== tel) {
+    cache.put(failKey, String(fails + 1), LOOKUP_LOCK_SECONDS);
+    return { ok: false, error: NOT_FOUND };
+  }
+
+  const mode = Object.keys(MODES).filter(k => MODES[k] === row[3])[0] || 'takeout';
+  const placed = row[0] instanceof Date ? row[0].getTime() : null;
+  return {
+    ok: true,
+    status: String(row[2] || '已收到').trim(),
+    order: {
+      mode: mode,
+      store: String(row[4] || ''),
+      when: row[5] instanceof Date ? Utilities.formatDate(row[5], 'Asia/Taipei', 'HH:mm') : String(row[5] || ''),
+      people: String(row[6] || ''),
+      items: parseItems(row[10]),
+      subtotal: Number(row[12]) || 0,
+      shipping: Number(row[13]) || 0,
+      total: Number(row[14]) || 0,
+      createdAt: placed
+    }
+  };
+}
+
+function findByOrderId(sheet, id) {
+  const last = sheet.getLastRow();
+  if (last < 2) return null;
+  const cell = sheet.getRange(2, 2, last - 1, 1).createTextFinder(id).matchEntireCell(true).findNext();
+  return cell ? sheet.getRange(cell.getRow(), 1, 1, HEADERS.length).getValues()[0] : null;
+}
+
+// 「品項」欄是「名稱 × 數量」一行一項；小計依目前價目表換算，查不到價格的品項不顯示金額
+function parseItems(text) {
+  const price = {};
+  Object.keys(MENU).forEach(id => { price[MENU[id].name] = MENU[id].price; });
+  return String(text || '').split('\n').map(line => {
+    const m = line.match(/^(.*?)\s*×\s*(\d+)\s*$/);
+    if (!m) return null;
+    const qty = Number(m[2]);
+    return { name: m[1], qty: qty, sum: price[m[1]] != null ? price[m[1]] * qty : null };
+  }).filter(Boolean);
 }
 
 /* ---------- 驗證與計價 ---------- */
@@ -205,9 +284,36 @@ function reply(obj) {
 
 /* ---------- 安裝時手動執行一次 ---------- */
 
-// 在 Apps Script 編輯器選 setup → 執行：建立「訂單」工作表與標題列，並完成授權
+// 在 Apps Script 編輯器選 setup → 執行：建立「訂單」工作表與標題列、狀態下拉選單與顏色，並完成授權。
+// 重複執行沒有關係。
 function setup() {
   const sheet = getSheet();
   sheet.setColumnWidth(11, 220);
+  const status = sheet.getRange(2, COL_STATUS, sheet.getMaxRows() - 1, 1);
+  status.setDataValidation(statusRule());
+
+  // 狀態上色，店員一眼看出哪些該出餐。只重設這一欄的規則，保留其他自訂格式
+  const a1 = status.getA1Notation();
+  const color = (text, bg, fg, strike) => {
+    const b = SpreadsheetApp.newConditionalFormatRule().whenTextEqualTo(text).setBackground(bg).setFontColor(fg).setRanges([status]);
+    if (strike) b.setStrikethrough(true);
+    return b.build();
+  };
+  const others = sheet.getConditionalFormatRules().filter(r => !r.getRanges().some(g => g.getA1Notation() === a1));
+  sheet.setConditionalFormatRules(others.concat([
+    color('製作中', '#fde7c7', '#8a4b00'),
+    color('可取餐', '#f07a2a', '#ffffff'),
+    color('已出貨', '#f07a2a', '#ffffff'),
+    color('已完成', '#e7e5df', '#5d5870'),
+    color('已取消', '#e7e5df', '#9a95a8', true)
+  ]));
   console.log('完成：' + sheet.getParent().getName() + ' / ' + sheet.getName());
+}
+
+function statusRule() {
+  return SpreadsheetApp.newDataValidation()
+    .requireValueInList(STATUSES, true)
+    .setAllowInvalid(false)
+    .setHelpText('請從清單選擇：' + STATUSES.join('、'))
+    .build();
 }
